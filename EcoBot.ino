@@ -226,10 +226,6 @@ void Motor_TestMotor(byte motorIdentifier)
  **************************************************************************************/
 void HandleIR(void)
 {
-    /* Debug Stuff */
-    Serial.print("HandleIR::I Received IR: ");
-    Serial.println(results.value, HEX);
-
     switch(results.value)
     {
         case IR_VALUE_FORWARD: 
@@ -283,10 +279,6 @@ void CheckForCommands(void)
         /* Try to read IR Receiver */
         if(irrecv.decode(&results))
         {
-            /* Debug Stuff */
-            Serial.print("CheckForCommands::I received IR: ");
-            Serial.println(results.value, HEX);
-
             /* Resume IR */
             irrecv.resume();
 
@@ -326,9 +318,6 @@ void CheckForCommands(void)
         }
         else
         {
-            /* Debug Stuff */
-            //Serial.println("CheckForCommands::I received nothing");
-
             /* Stop motors if some time passed since last command */
             if((0 != breakTime) && (DRV8834_BREAK_TIMEOUT < (millis() - breakTime)))
             {
@@ -353,9 +342,6 @@ void CheckForCommands(void)
  **************************************************************************************/
 void setup(void)
 {
-    /* Debug Stuff */
-    Serial.begin(SERIAL_BRATE);
-
     /* PIN Modes */
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(PIN_MA_ENABLE, OUTPUT);
