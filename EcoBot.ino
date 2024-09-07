@@ -70,9 +70,9 @@ decode_results results;
 void Motor_BreakMotor(byte motorIdentifier)
 {
     /* To make the motors break in Phase/Enable Mode you need to:
-        - xENBL on Low
-        - xPHASE doesn't matter
-       The outputs will be both 0v => Motor will stop */
+     * - xENBL on Low
+     * - xPHASE doesn't matter
+     * The outputs will be both 0v => Motor will stop */
 
     /* Check which motor to break */
     switch(motorIdentifier)
@@ -200,7 +200,7 @@ void Motor_EnableMotor(byte motorIdentifier, byte motorPower)
 void Motor_TestMotor(byte motorIdentifier)
 {
   /* To test the motor functionality, the motor shall run in each direction
-    and also the switching of the direction shall work. */
+   * and also the switching of the direction shall work. */
 
   static byte direction = 1u;
 
@@ -222,10 +222,11 @@ void Motor_TestMotor(byte motorIdentifier)
 /***************************************************************************************
  * Function: HandleIR()
  ***************************************************************************************
- * Description: This function checks the IR readings and do something about it.
+ * Description: This function checks the IR readings and moves the robot accordingly.
  **************************************************************************************/
 void HandleIR(void)
 {
+    /* Robot reaction based on the IR value */
     switch(results.value)
     {
         case IR_VALUE_FORWARD: 
@@ -253,6 +254,7 @@ void HandleIR(void)
         case IR_VALUE_MODE:
             /* Change Explore State */
             exploreState = !exploreState;
+            Motor_BreakMotor(DRV8834_MOTOR_BOTH);
             break;
         default:
             /* Do nothing */
@@ -261,15 +263,23 @@ void HandleIR(void)
 }
 
 /***************************************************************************************
- * Function: CheckForCommands()
+ * Function: Robot_Explore()
  ***************************************************************************************
- * Description: This function verify if there are custom commands sent through IR.
+ * Description: This function verify Explore Mode and decide how to control the robot.
  **************************************************************************************/
-void CheckForCommands(void)
+void Robot_Explore(void)
 {
+    /* Explore the world based on the active state
+     * - Automate = drive autonomously but check IR Receiver for Mode Switch first
+     * - Manual = drive based on IR commands */
+
+    /* Timeout to stop the motors
+     * - when it is 0 it is disabled
+     * - when it has a value it is started and checked upon the threshold */
     static volatile long breakTime = 0;
 
-    /* Explore Stuff */
+    
+    /* Check Exploreing state */
     if(exploreState == EXPLORE_AUTOMATE)
     {
         /* Try to read IR Receiver */
@@ -278,11 +288,13 @@ void CheckForCommands(void)
             /* Resume IR */
             irrecv.resume();
 
-            /* Check for Explore Change */
+            /* Check for Explore Mode */
             if(IR_VALUE_MODE == results.value)
             {
-                /* Change Explore State */
+                /* Switch Explore State */
                 exploreState = !exploreState;
+                Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+                return; /* Skip Autonomous part */
             }
             else
             {
@@ -291,16 +303,18 @@ void CheckForCommands(void)
         }
         else
         {
-            /* Do Autonomous things */
-            /* Check for Obstacles */
-            /* Decide next Direction */
-            /* Move */
+            /* No IR Commands */
         }
+
+        /* Do Autonomous things */
+        /* Check for Obstacles */
+        /* Decide next Direction */
+        /* Move */
     }
     else
     {
         /* Do Manual things */
-        /* Check IR Input */
+        /* Check for IR Input */
         if(irrecv.decode(&results))
         {
             /* Resume IR */
@@ -373,5 +387,5 @@ void loop(void)
     //TODO();
 
     /* Movement Control */
-    CheckForCommands();
+    Robot_Explore();
 }
