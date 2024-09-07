@@ -32,7 +32,7 @@
 #define DRV8834_POWER_NONE          0u
 #define DRV8834_WAKEUP_WAIT         1     /* Miliseconds until DRV8834 should be fully working after wakeup */
 #define DRV8834_WALK_TIME           100
-#define DRV8834_BREAK_TIMEOUT       110   /* Lower than this and the timeout is too short */
+#define DRV8834_BREAK_TIMEOUT       115   /* Lower than this and the timeout is too short */
 /* Motor Stuff end */
 
 /* Exploration Stuff */
@@ -232,27 +232,23 @@ void HandleIR(void)
             /* Move Forward */
             Motor_SwitchDirection(DRV8834_MOTOR_BOTH, DRV8834_DIRECTION_FORWARD);
             Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
-            delay(DRV8834_WALK_TIME);
             break;
         case IR_VALUE_BACKWARD:
             /* Move Backwards */
             Motor_SwitchDirection(DRV8834_MOTOR_BOTH, DRV8834_DIRECTION_BACKWARD);
             Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
-            delay(DRV8834_WALK_TIME);
             break;
         case IR_VALUE_LEFT:
             /* Rotate Left */
             Motor_SwitchDirection(DRV8834_MOTOR_A, DRV8834_DIRECTION_BACKWARD);
             Motor_SwitchDirection(DRV8834_MOTOR_B, DRV8834_DIRECTION_FORWARD);
             Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
-            delay(DRV8834_WALK_TIME);
             break;
         case IR_VALUE_RIGHT:
             /* Rotate Right */
             Motor_SwitchDirection(DRV8834_MOTOR_A, DRV8834_DIRECTION_FORWARD);
             Motor_SwitchDirection(DRV8834_MOTOR_B, DRV8834_DIRECTION_BACKWARD);
             Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
-            delay(DRV8834_WALK_TIME);
             break;
         case IR_VALUE_MODE:
             /* Change Explore State */
