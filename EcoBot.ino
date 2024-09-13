@@ -3,6 +3,7 @@
  **************************************************************************************/
 #include "Notes.h"
 #include "IRremote.h"
+#include <LowPower.h>
 
 /***************************************************************************************
  * Macros
@@ -13,6 +14,7 @@
 #define DELAY_1_SECOND  1000
 #define DELAY_DEFAULT   DELAY_1_SECOND
 #define SERIAL_BRATE    115200
+static byte devStuff = E_OK;
 /* General Stuff end */
 
 /* Motor Stuff */
@@ -28,7 +30,7 @@
 #define DRV8834_DIRECTION_BACKWARD  0u
 #define DRV8834_DIRECTION_FORWARD   1u
 #define DRV8834_POWER_FULL          255u
-#define DRV8834_POWER_HALF          128u
+#define DRV8834_POWER_HALF          127u
 #define DRV8834_POWER_NONE          0u
 #define DRV8834_WAKEUP_WAIT         1     /* Miliseconds until DRV8834 should be fully working after wakeup */
 #define DRV8834_WALK_TIME           100
@@ -55,6 +57,18 @@ static byte exploreState = EXPLORE_AUTOMATE;
 IRrecv irrecv(PIN_IR_RECEIVER_DATA);
 decode_results results;
 /* IR Stuff end */
+
+/* Power Management Stuff */
+#define PIN_BATTERY_LEVEL           A3
+#define PIN_INSOMNIA          	    2       /* Used for development purpose to keep the Robot awake */
+#define ADC_MAX_VALUE               1023.0
+#define ADC_MAX_VOLTAGE             3.3
+#define BATTERY_SLEEP_THRESHOLD     3.3     /* Voltage drops by 0.05 V when motors are working */
+#define ROBOT_SLEEP_1_SECOND        1
+#define ROBOT_SLEEP_10_SECONDS      10
+#define ROBOT_SLEEP_1_MINUTE        60
+#define ROBOT_SLEEP_TIME_DEFAULT    ROBOT_SLEEP_1_SECOND
+/* Power Management Stuff end */
 
 /***************************************************************************************
  * Function: Motor_Break()
@@ -346,14 +360,16 @@ void Robot_Explore(void)
 }
 
 /***************************************************************************************
- * Function: setup()
+ * Function: Robot_WakeUp()
  ***************************************************************************************
- * Description: This function will setup and initialize things at startup
+ * Description: This function is executed when the robot wakes up. It will initialize
+ *              everything and will make the robot functional.
  **************************************************************************************/
-void setup(void)
+void Robot_WakeUp(void)
 {
+    /* Initialize things */
     /* PIN Modes */
-    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(LED_BUILTIN, OUTPUT);   /* Debug purposes */
     pinMode(PIN_MA_ENABLE, OUTPUT);
     pinMode(PIN_MA_PHASE, OUTPUT);
     pinMode(PIN_MB_ENABLE, OUTPUT);
@@ -374,6 +390,167 @@ void setup(void)
 
     /* Enable IR Receiver */
     irrecv.enableIRIn();
+
+    /* Dev Stuff */
+    if(E_OK == devStuff)
+    {
+        /* New Day! */
+        Serial.println("Good Morning!");
+    }
+}
+
+/***************************************************************************************
+ * Function: Robot_Sleep()
+ ***************************************************************************************
+ * Description: This function checks the Energy Consumption and decide what to do.
+ * Parameters:
+ *  - sleepTime[in]   :   Number of seconds to go to sleep
+ *                              Supported Inputs: 
+ *                                  0u - 3600u
+ **************************************************************************************/
+void Robot_Sleep(uint16_t sleepTime)
+{
+    /* Check if Robot is able to sleep */
+    if(HIGH == digitalRead(PIN_INSOMNIA))
+    {
+        /* Insomnia is here, can't sleep */
+    }
+    else
+    {
+        /* Insomnia is not around, sleep */
+        /* Set wakeup conditions */
+        /* GPIO External Interrupt Wakeup */
+        attachInterrupt(PIN_INSOMNIA, Robot_WakeUp, HIGH);
+
+        /* Ensure All Used Pins are configured to output, then output nothing */
+        /* Exception for Insomnia to wake it up and Battery Level as it will be always on */
+        pinMode(PIN_IR_RECEIVER_POWER, OUTPUT);
+        digitalWrite(PIN_IR_RECEIVER_POWER, LOW);   /* Disable IR Receiver */
+        pinMode(PIN_IR_RECEIVER_DATA, OUTPUT);
+        digitalWrite(PIN_IR_RECEIVER_DATA, LOW);
+        pinMode(PIN_DRV8834_SLEEP, OUTPUT);
+        digitalWrite(PIN_DRV8834_SLEEP, LOW);   /* Send Motor Driver to sleep */
+        pinMode(PIN_MA_ENABLE, OUTPUT);
+        digitalWrite(PIN_MA_ENABLE, LOW);
+        pinMode(PIN_MA_PHASE, OUTPUT);
+        digitalWrite(PIN_MA_PHASE, LOW);
+        pinMode(PIN_MB_ENABLE, OUTPUT);
+        digitalWrite(PIN_MB_ENABLE, LOW);
+        pinMode(PIN_MB_PHASE, OUTPUT);
+        digitalWrite(PIN_MB_PHASE, LOW);
+        pinMode(LED_BUILTIN, OUTPUT);
+        digitalWrite(LED_BUILTIN, LOW);        
+
+        /* Dev Stuff */
+        if(E_OK == devStuff)
+        {
+            /* Say Good night */
+            Serial.println("Good night!");
+
+            delay(100);
+        }
+
+        /* Go to sleep */
+        if(sleepTime & 1u)
+        {
+            LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
+        }
+        if(sleepTime & 2u)
+        {
+            LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
+        }
+        if(sleepTime & 4u)
+        {
+            LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
+        }
+
+        while(sleepTime & 0xFFF8u)
+        {
+            sleepTime -= 8;
+            LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+        }
+    }
+}
+
+/***************************************************************************************
+ * Function: Robot_PowerManagement()
+ ***************************************************************************************
+ * Description: This function checks the Energy Consumption and decide what to do.
+ **************************************************************************************/
+void Robot_PowerManagement()
+{
+    volatile uint16_t batteryLevel;
+    volatile float batteryVoltage;
+
+    /* Go to sleep if the battery is discharged to save energy and let Solar recharge it */
+    do
+    {
+        /* Read Battery Level */
+        batteryLevel = analogRead(PIN_BATTERY_LEVEL);
+        
+        /* Battery voltage is double the reading value; Voltage Divider is used with R1 = R2 */
+        batteryVoltage = (batteryLevel * (ADC_MAX_VOLTAGE / ADC_MAX_VALUE)) * 2;
+
+        /* Check if robot is tired */
+        if(BATTERY_SLEEP_THRESHOLD >= batteryVoltage)
+        {
+            /* Go to sleep */
+            Robot_Sleep(ROBOT_SLEEP_TIME_DEFAULT);
+
+            /* Wakeup */
+            Robot_WakeUp();
+        }
+        else
+        {
+            /* No need to sleep */
+            break;
+        }
+    }while(BATTERY_SLEEP_THRESHOLD >= batteryVoltage);
+}
+
+/***************************************************************************************
+ * Function: Robot_Testing()
+ ***************************************************************************************
+ * Description: Code to test. Used for Development purposes and Dev Builds.
+ **************************************************************************************/
+void Robot_Testing(void)
+{
+    /* Sleep for 20 seconds to Measure Energy Consumption */
+    //Robot_Sleep(20);
+
+    /* Test if motors stopped working */
+    //Motor_TestMotor(DRV8834_MOTOR_BOTH);
+
+    /* Read Battery Level */
+    float batteryLevel = analogRead(PIN_BATTERY_LEVEL);
+        
+    /* Battery voltage is double the reading value; Voltage Divider is used with R1 = R2 */
+    float batteryVoltage = (batteryLevel * (ADC_MAX_VOLTAGE / ADC_MAX_VALUE)) * 2;
+
+    /* Show battery level on Serial */
+    Serial.println(batteryVoltage);
+}
+
+/***************************************************************************************
+ * Function: setup()
+ ***************************************************************************************
+ * Description: This function will setup and initialize things at startup
+ **************************************************************************************/
+void setup(void)
+{
+    /* Dev Build */
+    if(E_OK == devStuff)
+    {
+        /* Prepare Debug */
+        Serial.begin(SERIAL_BRATE);
+    }
+    else
+    {
+        /* Do nothing */
+    }
+
+    /* Initialize everything */
+    Robot_WakeUp();
 }
 
 /***************************************************************************************
@@ -383,8 +560,19 @@ void setup(void)
  **************************************************************************************/
 void loop(void) 
 {
+    /* Dev Build */
+    if(E_OK == devStuff)
+    {
+        /* Dev Stuff */
+        Robot_Testing();
+    }
+    else
+    {
+        /* Production Stuff */
+    }
+
     /* Battery Management */
-    //TODO();
+    Robot_PowerManagement();
 
     /* Movement Control */
     Robot_Explore();
