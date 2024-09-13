@@ -14,4 +14,5 @@ To achieve this we'll need:
 - 1x 3-5v Battery, probably a LiPo battery + BMS for 1S -> Provide enough power to keep the robot alive.
 - 1x 6V Solar Panel -> Enough to charge the Battery.
 - 1x Solar Charger(probably CN3065) -> Convert raw solar power to LiPo standards.
-- 1x Distance Sensor(probably HC-SR04) -> Look around and don't bump into things.
+- 2x Distance Sensors(probably VL53L0X and LM393 based IR obstacle detector) -> Look around and don't bump into things.
+- 1x IR Receiver -> Receive commands to remotely controll the robot.
