@@ -28,13 +28,13 @@
  *  D5  --- Used by Motor B Enable
  *  D6  --- Used by Motor B Phase
  *  D7  --- Used by DRV8834 Sleep Pin
- *  D8  --- 
- *  D9  --- Used to read IR Receiver
+ *  D8  --- Used by IR Obstacle Data
+ *  D9  --- Used by IR Receiver Data
  *  D10 --- Reserved for SPI SS(CS) (possible E-Paper?)
  *  D11 --- Reserved for SPI MOSI   (an E-Paper would be nice)
  *  D12 --- Reserved for SPI MISO   (like, you can draw emotions)
  *  D13 --- Reserved for SPI SCK    (on the E-Paper)
- *  A0  --- Used to power IR Receiver
+ *  A0  --- Used to power IR Modules
  *  A1  ---
  *  A2  ---
  *  A3  --- Used to read Battery Level
@@ -95,6 +95,8 @@
 /* TODO: Don't be blind
  * - An IR Distance Sensor will be used to detect objects ahead.
  * - If an object is detected, the robot will rotate around and try to find another path with no obstacles.
+ * - IR Output is LOW when there is an obstacle detected, else is HIGH.
+ * - Will be powered from the same pin as IR Remote.
  */
 
 /* TODO: Laser Eyes

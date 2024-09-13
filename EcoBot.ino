@@ -14,7 +14,7 @@
 #define DELAY_1_SECOND  1000
 #define DELAY_DEFAULT   DELAY_1_SECOND
 #define SERIAL_BRATE    115200
-static byte devStuff = E_OK;
+static byte devStuff = E_NOT_OK;
 /* General Stuff end */
 
 /* Motor Stuff */
@@ -45,8 +45,9 @@ static byte exploreState = EXPLORE_AUTOMATE;
 /* Exploration Stuff end */
 
 /* IR Stuff */
-#define PIN_IR_RECEIVER_POWER   A0    /* Power the IR Receiver with this pin */
-#define PIN_IR_RECEIVER_DATA    9     /* Read data from IR Receiver with this pin */
+#define PIN_IR_RECEIVER_POWER   A0      /* Power the IR Receiver with this pin */
+#define PIN_IR_OBSTACLE_DATA    8       /* Read data from IR Obstacle Detector  with this pin */
+#define PIN_IR_RECEIVER_DATA    9       /* Read data from IR Receiver with this pin */
 
 #define IR_VALUE_FORWARD        0xFF18E7    /* Move Backward */
 #define IR_VALUE_BACKWARD       0xFF4AB5    /* Move Forward */
@@ -277,6 +278,41 @@ void HandleIR(void)
 }
 
 /***************************************************************************************
+ * Function: Robot_Autopilot()
+ ***************************************************************************************
+ * Description: This function will use Robot intelligence for driving around.
+ **************************************************************************************/
+void Robot_Autopilot(void)
+{
+    /* Read Distance Sensors and decide if movement is possible */
+    /* - IR Sensor detects on LOW read */
+    if(LOW == digitalRead(PIN_IR_OBSTACLE_DATA))
+    {
+        /* Obstacle Detected Ahead */
+        /* Stop */
+        Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+
+        /* Look around */
+        /* Look Left */
+        /* Look Right */
+
+        /* Decide which way to go */
+
+        /* Some Dev Stuff */
+        if(E_OK == devStuff)
+        {
+            Serial.println("I see");
+        }
+    }
+    else
+    {
+        /* No obstacle ahead */
+        /* Walk forward */
+        Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
+    }
+}
+
+/***************************************************************************************
  * Function: Robot_Explore()
  ***************************************************************************************
  * Description: This function verify Explore Mode and decide how to control the robot.
@@ -321,9 +357,7 @@ void Robot_Explore(void)
         }
 
         /* Do Autonomous things */
-        /* Check for Obstacles */
-        /* Decide next Direction */
-        /* Move */
+        Robot_Autopilot();
     }
     else
     {
@@ -402,7 +436,7 @@ void Robot_WakeUp(void)
 /***************************************************************************************
  * Function: Robot_Sleep()
  ***************************************************************************************
- * Description: This function checks the Energy Consumption and decide what to do.
+ * Description: This function tries to make the Robot Sleep.
  * Parameters:
  *  - sleepTime[in]   :   Number of seconds to go to sleep
  *                              Supported Inputs: 
