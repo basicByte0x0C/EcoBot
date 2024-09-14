@@ -14,7 +14,7 @@
 #define DELAY_1_SECOND  1000
 #define DELAY_DEFAULT   DELAY_1_SECOND
 #define SERIAL_BRATE    115200
-static byte devStuff = E_NOT_OK;
+static byte devStuff = E_OK;
 /* General Stuff end */
 
 /* Motor Stuff */
@@ -54,6 +54,7 @@ static byte exploreState = EXPLORE_MANUAL;
 #define IR_VALUE_LEFT           0xFF10EF    /* Rotate Left */
 #define IR_VALUE_RIGHT          0xFF5AA5    /* Rotate Right */
 #define IR_VALUE_MODE           0xFF38C7    /* Switch between Manual and Automate Exploring */
+#define IR_VALUE_SLEEP          0xFF6897    /* Go to Sleep for a while */
 
 IRrecv irrecv(PIN_IR_RECEIVER_DATA);
 decode_results results;
@@ -67,7 +68,10 @@ decode_results results;
 #define BATTERY_SLEEP_THRESHOLD     2.0     /* Voltage drops by 0.05 V when motors are working */
 #define ROBOT_SLEEP_1_SECOND        1
 #define ROBOT_SLEEP_10_SECONDS      10
+#define ROBOT_SLEEP_30_SECONDS      30
 #define ROBOT_SLEEP_1_MINUTE        60
+#define ROBOT_SLEEP_10_MINUTES      600
+#define ROBOT_SLEEP_30_MINUTES      1800
 #define ROBOT_SLEEP_TIME_DEFAULT    ROBOT_SLEEP_1_SECOND
 /* Power Management Stuff end */
 
@@ -278,6 +282,121 @@ void Motor_TestMotor(byte motorIdentifier)
   Motor_SwitchDirection(motorIdentifier, direction);
 }
 
+
+/***************************************************************************************
+ * Function: Robot_WakeUp()
+ ***************************************************************************************
+ * Description: This function is executed when the robot wakes up. It will initialize
+ *              everything and will make the robot functional.
+ **************************************************************************************/
+void Robot_WakeUp(void)
+{
+    /* Initialize things */
+    /* PIN Modes */
+    pinMode(LED_BUILTIN, OUTPUT);   /* Debug purposes */
+    pinMode(PIN_MA_ENABLE, OUTPUT);
+    pinMode(PIN_MA_PHASE, OUTPUT);
+    pinMode(PIN_MB_ENABLE, OUTPUT);
+    pinMode(PIN_MB_PHASE, OUTPUT);
+    pinMode(PIN_DRV8834_SLEEP, OUTPUT);
+    pinMode(PIN_IR_RECEIVER_POWER, OUTPUT);
+    pinMode(PIN_IR_RECEIVER_DATA, INPUT);
+
+    /* Wakeup the Motor Driver */
+    digitalWrite(PIN_DRV8834_SLEEP, HIGH);
+    delay(DRV8834_WAKEUP_WAIT);
+
+    /* Set default direction of both Motors to move Forward */
+    Motor_SwitchDirection(DRV8834_MOTOR_BOTH, DRV8834_DIRECTION_FORWARD);
+
+    /* Power on the IR Receiver */
+    digitalWrite(PIN_IR_RECEIVER_POWER, HIGH);
+
+    /* Enable IR Receiver */
+    irrecv.enableIRIn();
+
+    /* Dev Stuff */
+    if(E_OK == devStuff)
+    {
+        /* New Day! */
+        Serial.println("Good Morning!");
+    }
+}
+
+/***************************************************************************************
+ * Function: Robot_Sleep()
+ ***************************************************************************************
+ * Description: This function tries to make the Robot Sleep.
+ * Parameters:
+ *  - sleepTime[in]   :   Number of seconds to go to sleep
+ *                              Supported Inputs: 
+ *                                  0u - 3600u
+ **************************************************************************************/
+void Robot_Sleep(uint16_t sleepTime)
+{
+    /* Check if Robot is able to sleep */
+    if(HIGH == digitalRead(PIN_INSOMNIA))
+    {
+        /* Insomnia is here, can't sleep */
+    }
+    else
+    {
+        /* Insomnia is not around, sleep */
+        /* Set wakeup conditions */
+        /* GPIO External Interrupt Wakeup */
+        attachInterrupt(PIN_INSOMNIA, Robot_WakeUp, HIGH);
+
+        /* Ensure All Used Pins are configured to output, then output nothing */
+        /* Exception for Insomnia to wake it up and Battery Level as it will be always on */
+        pinMode(PIN_IR_RECEIVER_POWER, OUTPUT);
+        digitalWrite(PIN_IR_RECEIVER_POWER, LOW);   /* Disable IR Receiver */
+        pinMode(PIN_IR_RECEIVER_DATA, OUTPUT);
+        digitalWrite(PIN_IR_RECEIVER_DATA, LOW);
+        pinMode(PIN_DRV8834_SLEEP, OUTPUT);
+        digitalWrite(PIN_DRV8834_SLEEP, LOW);   /* Send Motor Driver to sleep */
+        pinMode(PIN_MA_ENABLE, OUTPUT);
+        digitalWrite(PIN_MA_ENABLE, LOW);
+        pinMode(PIN_MA_PHASE, OUTPUT);
+        digitalWrite(PIN_MA_PHASE, LOW);
+        pinMode(PIN_MB_ENABLE, OUTPUT);
+        digitalWrite(PIN_MB_ENABLE, LOW);
+        pinMode(PIN_MB_PHASE, OUTPUT);
+        digitalWrite(PIN_MB_PHASE, LOW);
+        pinMode(LED_BUILTIN, OUTPUT);
+        digitalWrite(LED_BUILTIN, LOW);        
+
+        /* Dev Stuff */
+        if(E_OK == devStuff)
+        {
+            /* Say Good night */
+            Serial.println("Good night!");
+
+            delay(100);
+        }
+
+        /* Go to sleep */
+        if(sleepTime & 1u)
+        {
+            LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
+        }
+        if(sleepTime & 2u)
+        {
+            LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
+        }
+        if(sleepTime & 4u)
+        {
+            LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
+        }
+
+        while(sleepTime & 0xFFF8u)
+        {
+            sleepTime -= 8;
+            LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+        }
+    }
+}
+
+
 /***************************************************************************************
  * Function: HandleIR()
  ***************************************************************************************
@@ -320,6 +439,11 @@ void HandleIR(void)
             /* Change Explore State */
             exploreState = !exploreState;
             Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+            break;
+        case IR_VALUE_SLEEP:
+            /* Sleep for a while */
+            Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+            Robot_Sleep(ROBOT_SLEEP_1_MINUTE);
             break;
         default:
             /* Do nothing */
@@ -540,119 +664,6 @@ void Robot_Explore(void)
             {
                 /* Do Nothing */
             }
-        }
-    }
-}
-
-/***************************************************************************************
- * Function: Robot_WakeUp()
- ***************************************************************************************
- * Description: This function is executed when the robot wakes up. It will initialize
- *              everything and will make the robot functional.
- **************************************************************************************/
-void Robot_WakeUp(void)
-{
-    /* Initialize things */
-    /* PIN Modes */
-    pinMode(LED_BUILTIN, OUTPUT);   /* Debug purposes */
-    pinMode(PIN_MA_ENABLE, OUTPUT);
-    pinMode(PIN_MA_PHASE, OUTPUT);
-    pinMode(PIN_MB_ENABLE, OUTPUT);
-    pinMode(PIN_MB_PHASE, OUTPUT);
-    pinMode(PIN_DRV8834_SLEEP, OUTPUT);
-    pinMode(PIN_IR_RECEIVER_POWER, OUTPUT);
-    pinMode(PIN_IR_RECEIVER_DATA, INPUT);
-
-    /* Wakeup the Motor Driver */
-    digitalWrite(PIN_DRV8834_SLEEP, HIGH);
-    delay(DRV8834_WAKEUP_WAIT);
-
-    /* Set default direction of both Motors to move Forward */
-    Motor_SwitchDirection(DRV8834_MOTOR_BOTH, DRV8834_DIRECTION_FORWARD);
-
-    /* Power on the IR Receiver */
-    digitalWrite(PIN_IR_RECEIVER_POWER, HIGH);
-
-    /* Enable IR Receiver */
-    irrecv.enableIRIn();
-
-    /* Dev Stuff */
-    if(E_OK == devStuff)
-    {
-        /* New Day! */
-        Serial.println("Good Morning!");
-    }
-}
-
-/***************************************************************************************
- * Function: Robot_Sleep()
- ***************************************************************************************
- * Description: This function tries to make the Robot Sleep.
- * Parameters:
- *  - sleepTime[in]   :   Number of seconds to go to sleep
- *                              Supported Inputs: 
- *                                  0u - 3600u
- **************************************************************************************/
-void Robot_Sleep(uint16_t sleepTime)
-{
-    /* Check if Robot is able to sleep */
-    if(HIGH == digitalRead(PIN_INSOMNIA))
-    {
-        /* Insomnia is here, can't sleep */
-    }
-    else
-    {
-        /* Insomnia is not around, sleep */
-        /* Set wakeup conditions */
-        /* GPIO External Interrupt Wakeup */
-        attachInterrupt(PIN_INSOMNIA, Robot_WakeUp, HIGH);
-
-        /* Ensure All Used Pins are configured to output, then output nothing */
-        /* Exception for Insomnia to wake it up and Battery Level as it will be always on */
-        pinMode(PIN_IR_RECEIVER_POWER, OUTPUT);
-        digitalWrite(PIN_IR_RECEIVER_POWER, LOW);   /* Disable IR Receiver */
-        pinMode(PIN_IR_RECEIVER_DATA, OUTPUT);
-        digitalWrite(PIN_IR_RECEIVER_DATA, LOW);
-        pinMode(PIN_DRV8834_SLEEP, OUTPUT);
-        digitalWrite(PIN_DRV8834_SLEEP, LOW);   /* Send Motor Driver to sleep */
-        pinMode(PIN_MA_ENABLE, OUTPUT);
-        digitalWrite(PIN_MA_ENABLE, LOW);
-        pinMode(PIN_MA_PHASE, OUTPUT);
-        digitalWrite(PIN_MA_PHASE, LOW);
-        pinMode(PIN_MB_ENABLE, OUTPUT);
-        digitalWrite(PIN_MB_ENABLE, LOW);
-        pinMode(PIN_MB_PHASE, OUTPUT);
-        digitalWrite(PIN_MB_PHASE, LOW);
-        pinMode(LED_BUILTIN, OUTPUT);
-        digitalWrite(LED_BUILTIN, LOW);        
-
-        /* Dev Stuff */
-        if(E_OK == devStuff)
-        {
-            /* Say Good night */
-            Serial.println("Good night!");
-
-            delay(100);
-        }
-
-        /* Go to sleep */
-        if(sleepTime & 1u)
-        {
-            LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
-        }
-        if(sleepTime & 2u)
-        {
-            LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
-        }
-        if(sleepTime & 4u)
-        {
-            LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
-        }
-
-        while(sleepTime & 0xFFF8u)
-        {
-            sleepTime -= 8;
-            LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
         }
     }
 }
