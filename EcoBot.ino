@@ -396,7 +396,6 @@ void Robot_Sleep(uint16_t sleepTime)
     }
 }
 
-
 /***************************************************************************************
  * Function: HandleIR()
  ***************************************************************************************
@@ -444,6 +443,7 @@ void HandleIR(void)
             /* Sleep for a while */
             Motor_BreakMotor(DRV8834_MOTOR_BOTH);
             Robot_Sleep(ROBOT_SLEEP_1_MINUTE);
+            Robot_WakeUp();
             break;
         default:
             /* Do nothing */
@@ -673,7 +673,7 @@ void Robot_Explore(void)
  ***************************************************************************************
  * Description: This function checks the Energy Consumption and decide what to do.
  **************************************************************************************/
-void Robot_PowerManagement()
+void Robot_PowerManagement(void)
 {
     volatile uint16_t batteryLevel;
     volatile float batteryVoltage;
