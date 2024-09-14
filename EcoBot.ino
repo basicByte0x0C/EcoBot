@@ -14,7 +14,7 @@
 #define DELAY_1_SECOND  1000
 #define DELAY_DEFAULT   DELAY_1_SECOND
 #define SERIAL_BRATE    115200
-static byte devStuff = E_OK;
+static byte devStuff = E_NOT_OK;
 /* General Stuff end */
 
 /* Motor Stuff */
@@ -349,6 +349,48 @@ byte Robot_DetectAhead(void)
 }
 
 /***************************************************************************************
+ * Function: Robot_LookAround()
+ ***************************************************************************************
+ * Description: Return a value which correspond to obstacles ahead.
+ * return       0u      Obstacles everywhere: Front, Lelft, Right
+ *              1u      Left is free
+ *              2u      Right is free
+ *              3u      Left and Right are both free
+ **************************************************************************************/
+byte Robot_LookAround(void)
+{
+    /* Return Left and Right Readings */
+    byte retVal = 3u;
+
+    /* Look Left */
+    Motor_RotateLeft(45);
+    Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+    delay(DELAY_DEFAULT);
+    if(E_NOT_OK == Robot_DetectAhead())
+    {
+        /* Remove this way */
+        retVal -= 1u;
+    }
+
+    /* Center back */
+    Motor_RotateRight(45);
+    delay(DELAY_DEFAULT);
+
+    /* Look Right */
+    Motor_RotateRight(45);
+    delay(DELAY_DEFAULT);
+    if(E_NOT_OK == Robot_DetectAhead())
+    {
+        /* Remove this way as well */
+        retVal -= 2u;
+    }
+
+    /* Return to original position */
+    Motor_RotateLeft(45);
+    delay(DELAY_DEFAULT);
+
+}
+/***************************************************************************************
  * Function: Robot_Autopilot()
  ***************************************************************************************
  * Description: This function will use Robot intelligence for driving around.
@@ -356,7 +398,7 @@ byte Robot_DetectAhead(void)
 void Robot_Autopilot(void)
 {
     /* Each bit represents one way: Left, ahead(or back) and Right <-- MSB to LSM */
-    byte whereToGo = 3u;
+    byte whereToGo = 2u;
     uint16_t randomDegrees = 180;
 
     /* Read Distance Sensors and decide if movement is possible */
@@ -366,48 +408,40 @@ void Robot_Autopilot(void)
         /* Obstacle Detected Ahead */
         /* Stop */
         Motor_BreakMotor(DRV8834_MOTOR_BOTH);
-        delay(DELAY_1_SECOND);
+        delay(DELAY_DEFAULT);
+
+        /* Go a step Back */
+        Motor_SwitchDirection(DRV8834_MOTOR_BOTH, DRV8834_DIRECTION_BACKWARD);
+        Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
+        delay(100);
 
         /* Look around */
-        /* Look Left */
-        Motor_RotateLeft(45);
-        Motor_BreakMotor(DRV8834_MOTOR_BOTH);
-        delay(DELAY_1_SECOND);
-        if(E_NOT_OK == Robot_DetectAhead())
-        {
-            /* Remove this way */
-            whereToGo -= 1u;
-        }
-
-        /* Look Right */
-        Motor_RotateRight(90);
-        delay(DELAY_1_SECOND);
-        if(E_NOT_OK == Robot_DetectAhead())
-        {
-            /* Remove this way as well */
-            whereToGo -= 2u;
-        }
-
-        /* Return to original position */
-        Motor_RotateLeft(45);
-        delay(DELAY_1_SECOND);
+        //whereToGo = Robot_LookAround();
 
         /* Decide which way to go */
+        /* Sensor used is not ok, go random for now */
+        whereToGo = 0u;
         switch(whereToGo)
         {
+            case 3u: /* Only obstacle ahead; fallthrough to obstacles everywhere */
             case 0u:
                 /* Only way is to turn around */
                 /* Turn around random degrees */
-                randomDegrees = (uint16_t)(millis() % 360);
+                randomSeed(millis());
+                randomDegrees = (uint16_t)random(360);
                 Motor_RotateLeft(randomDegrees);
+                delay(DELAY_DEFAULT);
                 break;
             case 1u:
-                /* I prefeer to try to go to Right first, don't know why */
+                /* Obstacle in Right side */
                 Motor_RotateRight(45);
+                delay(DELAY_DEFAULT);
                 break;
+            
             case 2u:
-                /* Otherwise i go Left */
-                Motor_RotateLeft(45);
+                /* Obstacle in Left side */
+                Motor_RotateRight(45);
+                delay(DELAY_DEFAULT);
                 break;
             default:
                 /* If i panic i do nothing */
@@ -679,7 +713,7 @@ void Robot_Testing(void)
     float batteryVoltage = (batteryLevel * (ADC_MAX_VOLTAGE / ADC_MAX_VALUE)) * 2;
 
     /* Show battery level on Serial */
-    Serial.println(batteryVoltage);
+    //Serial.println(batteryVoltage);
 }
 
 /***************************************************************************************
@@ -715,7 +749,7 @@ void loop(void)
     if(E_OK == devStuff)
     {
         /* Dev Stuff */
-        //Robot_Testing();
+        Robot_Testing();
     }
     else
     {
@@ -723,7 +757,7 @@ void loop(void)
     }
 
     /* Battery Management */
-    //Robot_PowerManagement();
+    Robot_PowerManagement();
 
     /* Movement Control */
     Robot_Explore();

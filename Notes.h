@@ -79,7 +79,7 @@
  *      - Pin Read : 3.60 V == Multimeter Reading : 3.88 V => Accuracy up to 0.28 V (R1 == R2 == 10 kOhm)
  *      - Pin Read : 3.87 V == Multimeter Reading : 3.89 V => Accuracy up to 0.02 V (R1 == R2 == 2 kOhm)
  *      - Pin Read : 3.86 V == Multimeter Reading : 3.88-3.89 V => Accuracy up to 0.03 V (R1 == R2 == 5 kOhm)
- *      - Pin Read : 3.86 V == Multimeter Reading : 3.99 V => Accuracy up to 0.03V (R1 == R2 == 10 kOhm)
+ *      - Pin Read : 3.86 V == Multimeter Reading : 3.89 V => Accuracy up to 0.03V (R1 == R2 == 10 kOhm)
  *  == IR Obstacle Working; Battery Management Checks ==
  *      - IR No Obstacle : 40.2 mA
  *      - IR Obstacle : 40.9 mA
@@ -113,6 +113,8 @@
  * - If an object is detected, the robot will rotate around and try to find another path with no obstacles.
  * - IR Output is LOW when there is an obstacle detected, else is HIGH.
  * - Will be powered from the same pin as IR Remote.
+ * - Very bad distance readings with this IR Distance Sensor. Maybe change the sensor with a better one.
+ * - If the configured threshold is too high the robot will see objects everywhere. At the limit it is reading 2cm ahead...
  */
 
 /* TODO: Laser Eyes
@@ -136,7 +138,7 @@
  * - xPHASE is controlling the direction, while xENBL controlls the motor.
  * - xENBL can be used as PWM to controll the motor.
  * - PWM doesn't work probably because motors need the 3.something voltage to work.
- * - TODO: Rotate Left and Right are not calibrated.
+ * - TODO: Rotate Left and Right are not calibrated. Just a little bit calibrated.
  */
 
 /* ----- Sleep like a baby -----
