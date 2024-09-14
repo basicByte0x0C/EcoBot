@@ -73,7 +73,7 @@
  *      - Only Motor Driver Asleep : 4.51 mA => Motor Driver in Idle consume aprox 2.5 mA
  *      - Only IR Receiver Asleep : 6.68 mA => IR Receiver in Idle consume aprox 0.4 mA
  *      - Robot Sleeping : 1.58 mA
- *  == Battery Voltage Reader==
+ *  == Battery Voltage Reader ==
  *      - Pin Read : 3.97 V == Multimeter Reading : 4.01 V => Accuracy up to 0.04 V (R1 == R2 == 120 Ohm)
  *      - Pin Read : 3.95 V == Multimeter Reading : 3.99 V => Accuracy up to 0.04 V (R1 == R2 == 120 Ohm)
  *      - Pin Read : 3.60 V == Multimeter Reading : 3.88 V => Accuracy up to 0.28 V (R1 == R2 == 10 kOhm)
@@ -91,6 +91,11 @@
  *      - Robot Sleeping : 2.4 mA with R = 2 kOhm. Try with 5 kOhm.
  *      - Robot Sleeping : 1.8 mA with R = 5 kOhm. Best is 10 kOhm but let's see also accuracy.
  *      - Robot Running : 0.19A, Spike to 0.21 or slightly more
+ *  == Everything Ready ==
+ *      - Manual Mode Idle : 11.99 mA
+ *      - Manual Mode Idle(without IR Detector) : 7.45 mA => IR Detector consume aprox 4.5 mA
+ *          I expect ~2 mA if i desolder the LEDs
+ *      - Robot Sleeping : 1.68 mA
  */
 
 /* ----- IR Remote Control -----
@@ -104,7 +109,7 @@
  * - In Manual State, it will listen for IR Commands and execute them.
  * - In Autonomous State it will walk autonomously and avoid obstacles with sensors.
  * - If IR is not resumed after reading it it will be stuck with the same value forever. Resume to let it read the next command.
- * - Consume aprox 0.4mA when Idle, according to some measurements.
+ * - Consume aprox 0.4 mA when Idle, according to some measurements.
  */
 
 /* ----- Don't be blind -----
@@ -112,12 +117,13 @@
  * - If an object is detected, the robot will rotate around and try to find another path with no obstacles.
  * - IR Output is LOW when there is an obstacle detected, else is HIGH.
  * - Will be powered from the same pin as IR Remote.
- * - PROBLEM: If the configured threshold is too high the robot will see objects everywhere. At the limit it is reading 2cm ahead...
+ * - PROBLEM(solved): If the configured threshold is too high the robot will see objects everywhere. At the limit it is reading 2cm ahead...
  *      This is caused by Ambient Light, sensor reads ok if not in direct light.
  * - Changed IR Obstacle Sensor to Ambient Light resistent one(KY-032 KeyesIR 4 pin Sensor). Now it works in ambient light.
  * - PROBLEM: The IR Sensor detects in a narrow direction, obstacles too high or too low are not detected.
  *      Solution 1: Make Robot compact and short. But there are a lot of wires, can't do now.
  *          Solution to Solution 1: Make a design board or a PCB to make everything compact.
+ * - Consume aprox 4.5 mA when Idle, according to some measurements.
  */
 
 /* TODO: Laser Eyes
@@ -130,7 +136,7 @@
  */
 
 /* TODO: Function to set Driver Max Current 
- * - My Motors seems to use 120mA max each.
+ * - My Motors seems to use 120 mA max each.
  * - Something that shall be made on Driver Hardware?
  */
 

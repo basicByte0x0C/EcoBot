@@ -38,8 +38,17 @@ static byte devStuff = E_NOT_OK;
 /* Motor Stuff end */
 
 /* Exploration Stuff */
-#define EXPLORE_AUTOMATE  0u    /* Autonomous driving */
-#define EXPLORE_MANUAL    1u    /* Manual driving from IR */
+#define EXPLORE_AUTOMATE        0u    /* Autonomous driving */
+#define EXPLORE_MANUAL          1u    /* Manual driving from IR */
+#define EXPLORE_ROTATE_45       45
+#define EXPLORE_ROTATE_90       90
+#define EXPLORE_ROTATE_180      180
+#define EXPLORE_ROTATE_CUSTOM   135
+#define EXPLORE_ROTATE_DEFAULT  EXPLORE_ROTATE_90
+#define EXPLORE_OBSTACLE_NONE   0u
+#define EXPLORE_OBSTACLE_LEFT   1u
+#define EXPLORE_OBSTACLE_RIGHT  2u
+#define EXPLORE_OBSTACLE_BOTH   3u 
 
 static byte exploreState = EXPLORE_MANUAL;
 /* Exploration Stuff end */
@@ -483,41 +492,41 @@ byte Robot_DetectAhead(void)
  * Function: Robot_LookAround()
  ***************************************************************************************
  * Description: Return a value which correspond to obstacles ahead.
- * return       0u      Obstacles everywhere: Front, Lelft, Right
- *              1u      Left is free
- *              2u      Right is free
- *              3u      Left and Right are both free
+ * return       EXPLORE_OBSTACLE_NONE   == 0 : Left and Right are both free
+ *              EXPLORE_OBSTACLE_LEFT   == 1 : Left is blocked
+ *              EXPLORE_OBSTACLE_RIGHT  == 2 : Right is blocked
+ *              EXPLORE_OBSTACLE_BOTH   == 3 : Both Left and Right are blocked
  **************************************************************************************/
 byte Robot_LookAround(void)
 {
     /* Return Left and Right Readings */
-    byte retVal = 3u;
+    byte retVal = EXPLORE_OBSTACLE_NONE;
 
     /* Look Left */
-    Motor_RotateLeft(45);
+    Motor_RotateLeft(EXPLORE_ROTATE_DEFAULT);
     Motor_BreakMotor(DRV8834_MOTOR_BOTH);
     delay(DELAY_DEFAULT);
     if(E_NOT_OK == Robot_DetectAhead())
     {
         /* Remove this way */
-        retVal -= 1u;
+        retVal += EXPLORE_OBSTACLE_LEFT;
     }
 
     /* Center back */
-    Motor_RotateRight(45);
+    Motor_RotateRight(EXPLORE_ROTATE_DEFAULT);
     delay(DELAY_DEFAULT);
 
     /* Look Right */
-    Motor_RotateRight(45);
+    Motor_RotateRight(EXPLORE_ROTATE_DEFAULT);
     delay(DELAY_DEFAULT);
     if(E_NOT_OK == Robot_DetectAhead())
     {
         /* Remove this way as well */
-        retVal -= 2u;
+        retVal += EXPLORE_OBSTACLE_RIGHT;
     }
 
     /* Return to original position */
-    Motor_RotateLeft(45);
+    Motor_RotateLeft(EXPLORE_ROTATE_DEFAULT);
     delay(DELAY_DEFAULT);
 
     /* Dev Stuff */
@@ -560,16 +569,17 @@ void Robot_Autopilot(void)
         whereToGo = Robot_LookAround();
 
         /* Decide which way to go */
+        /* Ahead is already blocked */
         switch(whereToGo)
         {
-            case 3u: 
+            case EXPLORE_OBSTACLE_NONE: 
                 /* Only obstacle ahead */
-                /* Choose Left or right at random */
+                /* Choose Left or Right at random */
                 randomSeed(millis());
                 if(E_OK == random(2) % 2)
                 {
                     /* Go  Right */
-                    Motor_RotateRight(45);
+                    Motor_RotateRight(EXPLORE_ROTATE_DEFAULT);
                     delay(DELAY_DEFAULT);
 
                     /* Dev Stuff */
@@ -581,7 +591,7 @@ void Robot_Autopilot(void)
                 else
                 {
                     /* Go Left */
-                    Motor_RotateLeft(45);
+                    Motor_RotateLeft(EXPLORE_ROTATE_DEFAULT);
                     delay(DELAY_DEFAULT);
 
                     /* Dev Stuff */
@@ -592,7 +602,7 @@ void Robot_Autopilot(void)
                 }
 
                 break;
-            case 0u:
+            case EXPLORE_OBSTACLE_BOTH:
                 /* Only way is to turn around */
                 /* Turn around random degrees */
                 randomSeed(millis());
@@ -607,9 +617,9 @@ void Robot_Autopilot(void)
                 }
 
                 break;
-            case 1u:
+            case EXPLORE_OBSTACLE_RIGHT:
                 /* Obstacle in Right side */
-                Motor_RotateLeft(45);
+                Motor_RotateLeft(EXPLORE_ROTATE_DEFAULT);
                 delay(DELAY_DEFAULT);
                 
                 /* Dev Stuff */
@@ -619,9 +629,9 @@ void Robot_Autopilot(void)
                 }
 
                 break;
-            case 2u:
+            case EXPLORE_OBSTACLE_LEFT:
                 /* Obstacle in Left side */
-                Motor_RotateRight(45);
+                Motor_RotateRight(EXPLORE_ROTATE_DEFAULT);
                 delay(DELAY_DEFAULT);
 
                 /* Dev Stuff */
