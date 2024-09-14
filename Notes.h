@@ -64,6 +64,7 @@
 /* ----- Energy Management -----
  * - Voltage measured with Voltage Divider. R1 == R2. Resistence used: 120 Ohm probably 1W. 2W would be better.
  * - Pin Read Voltage drops by 0.05 V when Motors are running. Take in consideration for threshold. 
+ * - TODO: Decide if to desolder IR Obstacle LEDs. There are 2 bright leds, so it must consume some power.
  * -- Measurements ::
  *  == No Modifications; no Loop Code ==
  *      - Startup : jumps to ~5mA, fluctuates to 4 and 6 a little bit, then it jumps to Idle current of 7.03mA
@@ -72,9 +73,24 @@
  *      - Only Motor Driver Asleep : 4.51 mA => Motor Driver in Idle consume aprox 2.5 mA
  *      - Only IR Receiver Asleep : 6.68 mA => IR Receiver in Idle consume aprox 0.4 mA
  *      - Robot Sleeping : 1.58 mA
- *  == Battery Voltage Reader
- *      - Pin Read : 3.97 V == Multimeter Reading : 4.01 V => Accuracy up to 0.04 V
- *      - Pin Read : 3.95 V == Multimeter Reading : 3.99 V => Accuracy up to 0.04 V
+ *  == Battery Voltage Reader==
+ *      - Pin Read : 3.97 V == Multimeter Reading : 4.01 V => Accuracy up to 0.04 V (R1 == R2 == 120 Ohm)
+ *      - Pin Read : 3.95 V == Multimeter Reading : 3.99 V => Accuracy up to 0.04 V (R1 == R2 == 120 Ohm)
+ *      - Pin Read : 3.60 V == Multimeter Reading : 3.88 V => Accuracy up to 0.28 V (R1 == R2 == 10 kOhm)
+ *      - Pin Read : 3.87 V == Multimeter Reading : 3.89 V => Accuracy up to 0.02 V (R1 == R2 == 2 kOhm)
+ *      - Pin Read : 3.86 V == Multimeter Reading : 3.88-3.89 V => Accuracy up to 0.03 V (R1 == R2 == 5 kOhm)
+ *      - Pin Read : 3.86 V == Multimeter Reading : 3.99 V => Accuracy up to 0.03V (R1 == R2 == 10 kOhm)
+ *  == IR Obstacle Working; Battery Management Checks ==
+ *      - IR No Obstacle : 40.2 mA
+ *      - IR Obstacle : 40.9 mA
+ *      - Jumps to 20.2 for 1 second, then when IR starts working it jumps to 40,6 mA
+ *      - This increase in battery consumption seems to be caused by Voltage Divider. This is not ok.
+ *      - Robot Sleeping : 17.3 mA. Inacceptible! Need Higher Resistence!
+ *      - Changed Resistences from 120 Ohm to 10 kOhm => Sleep at 1.7 mA. Seems to work fine.
+ *      - Unknown Resistence Wattage. Still doesn't heat when Idle/Sleep.
+ *      - Robot Sleeping : 2.4 mA with R = 2 kOhm. Try with 5 kOhm.
+ *      - Robot Sleeping : 1.8 mA with R = 5 kOhm. Best is 10 kOhm but let's see also accuracy.
+ *      - Robot Running : 0.19A, Spike to 0.21 or slightly more
  *      
  */
 
@@ -92,7 +108,7 @@
  * - Consume aprox 0.4mA when Idle, according to some measurements.
  */
 
-/* TODO: Don't be blind
+/* ----- Don't be blind -----
  * - An IR Distance Sensor will be used to detect objects ahead.
  * - If an object is detected, the robot will rotate around and try to find another path with no obstacles.
  * - IR Output is LOW when there is an obstacle detected, else is HIGH.
@@ -119,13 +135,11 @@
  * - Each Motor has a ENABLE Pin and a PHASE Pin (xENBL and xPHASE).
  * - xPHASE is controlling the direction, while xENBL controlls the motor.
  * - xENBL can be used as PWM to controll the motor.
+ * - PWM doesn't work probably because motors need the 3.something voltage to work.
+ * - TODO: Rotate Left and Right are not calibrated.
  */
 
-/* TODO: RotateRight(degree) and RotateLeft(degree) functions
- * - Which will move the motors accordingly so the robot can rotate x degrees to the right or left .
- */
-
-/* ----- Seel like a baby -----
+/* ----- Sleep like a baby -----
  * - Robot will sleep while charging and when the battery level is low.
  * - Motor Driver put into sleep mode by setting the SLEEP Pin to LOW.
  * - Every other unessential peripheral is powered down.

@@ -14,7 +14,7 @@
 #define DELAY_1_SECOND  1000
 #define DELAY_DEFAULT   DELAY_1_SECOND
 #define SERIAL_BRATE    115200
-static byte devStuff = E_NOT_OK;
+static byte devStuff = E_OK;
 /* General Stuff end */
 
 /* Motor Stuff */
@@ -29,19 +29,19 @@ static byte devStuff = E_NOT_OK;
 #define DRV8834_MOTOR_BOTH          3u
 #define DRV8834_DIRECTION_BACKWARD  0u
 #define DRV8834_DIRECTION_FORWARD   1u
-#define DRV8834_POWER_FULL          255u
-#define DRV8834_POWER_HALF          127u
+#define DRV8834_POWER_FULL          255u    /* Doesn't work with less than max, lower than 3V is not enough for motors or PWM is sketchy */
 #define DRV8834_POWER_NONE          0u
-#define DRV8834_WAKEUP_WAIT         1     /* Miliseconds until DRV8834 should be fully working after wakeup */
+#define DRV8834_WAKEUP_WAIT         1       /* Miliseconds until DRV8834 should be fully working after wakeup */
 #define DRV8834_WALK_TIME           100
-#define DRV8834_BREAK_TIMEOUT       115   /* Lower than this and the timeout is too short */
+#define DRV8834_BREAK_TIMEOUT       115     /* Lower than this and the timeout is too short */
+#define MOTOR_TURN_TIME_FACTOR      5       /* Multiply by degree to turn around. Shoulkd be time for 1 degree */
 /* Motor Stuff end */
 
 /* Exploration Stuff */
 #define EXPLORE_AUTOMATE  0u    /* Autonomous driving */
 #define EXPLORE_MANUAL    1u    /* Manual driving from IR */
 
-static byte exploreState = EXPLORE_AUTOMATE;
+static byte exploreState = EXPLORE_MANUAL;
 /* Exploration Stuff end */
 
 /* IR Stuff */
@@ -64,7 +64,7 @@ decode_results results;
 #define PIN_INSOMNIA          	    2       /* Used for development purpose to keep the Robot awake */
 #define ADC_MAX_VALUE               1023.0
 #define ADC_MAX_VOLTAGE             3.3
-#define BATTERY_SLEEP_THRESHOLD     3.3     /* Voltage drops by 0.05 V when motors are working */
+#define BATTERY_SLEEP_THRESHOLD     2.0     /* Voltage drops by 0.05 V when motors are working */
 #define ROBOT_SLEEP_1_SECOND        1
 #define ROBOT_SLEEP_10_SECONDS      10
 #define ROBOT_SLEEP_1_MINUTE        60
@@ -162,7 +162,7 @@ void Motor_SwitchDirection(byte motorIdentifier, byte motorDirection)
 /***************************************************************************************
  * Function: Motor_EnableMotor()
  ***************************************************************************************
- * Description: This function will switch the direction of a specified motor
+ * Description: This function will power a specified motor
  * Parameters:
  *  - motorIdentifier[in]   :   Identifier of the motor to be switched forward
  *                              Supported Inputs: 
@@ -201,6 +201,50 @@ void Motor_EnableMotor(byte motorIdentifier, byte motorPower)
 }
 
 /***************************************************************************************
+ * Function: Motor_RotateRight()
+ ***************************************************************************************
+ * Description: This function will use motors to rotate right.
+ * Parameters:
+ *  - degrees[in]   :   Number of degrees to rotate right
+ **************************************************************************************/
+void Motor_RotateRight(uint16_t degrees)
+{
+    /* Stop Walking */
+    Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+
+    /* Rotate around */
+    Motor_SwitchDirection(DRV8834_MOTOR_A, DRV8834_DIRECTION_FORWARD);
+    Motor_SwitchDirection(DRV8834_MOTOR_B, DRV8834_DIRECTION_BACKWARD);
+    Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
+    delay(degrees * MOTOR_TURN_TIME_FACTOR);
+
+    /* Stop Turning around */
+    Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+}
+
+/***************************************************************************************
+ * Function: Motor_RotateLeft()
+ ***************************************************************************************
+ * Description: This function will use motors to rotate left.
+ * Parameters:
+ *  - degrees[in]   :   Number of degrees to rotate left
+ **************************************************************************************/
+void Motor_RotateLeft(uint16_t degrees)
+{
+    /* Stop Walking */
+    Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+
+    /* Rotate around */
+    Motor_SwitchDirection(DRV8834_MOTOR_A, DRV8834_DIRECTION_BACKWARD);
+    Motor_SwitchDirection(DRV8834_MOTOR_B, DRV8834_DIRECTION_FORWARD);
+    Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
+    delay(degrees * MOTOR_TURN_TIME_FACTOR);
+
+    /* Stop Turning around */
+    Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+}
+
+/***************************************************************************************
  * Function: Motor_TestMotor()
  ***************************************************************************************
  * Description: This can be called to test a motor. The motor shall run for 1s, wait for
@@ -217,21 +261,21 @@ void Motor_TestMotor(byte motorIdentifier)
   /* To test the motor functionality, the motor shall run in each direction
    * and also the switching of the direction shall work. */
 
-  static byte direction = 1u;
+  static byte direction = DRV8834_DIRECTION_FORWARD;
 
   /* Run the motor for 1s */
-  Motor_EnableMotor(motorIdentifier, 255u);
+  Motor_EnableMotor(motorIdentifier, DRV8834_POWER_FULL);
   digitalWrite(LED_BUILTIN, HIGH);
   delay(DELAY_1_SECOND);
 
   /* Stop the motor for 1s */
-  Motor_EnableMotor(motorIdentifier, 0u);
+  Motor_EnableMotor(motorIdentifier, DRV8834_POWER_NONE);
   digitalWrite(LED_BUILTIN, LOW);
   delay(DELAY_1_SECOND);
 
   /* Switch Motor Direction */
-  Motor_SwitchDirection(motorIdentifier, !direction);
   direction = !direction;
+  Motor_SwitchDirection(motorIdentifier, direction);
 }
 
 /***************************************************************************************
@@ -241,6 +285,12 @@ void Motor_TestMotor(byte motorIdentifier)
  **************************************************************************************/
 void HandleIR(void)
 {
+    /* Dev Stuff */
+    if(E_OK == devStuff)
+    {
+        Serial.print("IR: ");
+        Serial.println(results.value, HEX);
+    }
     /* Robot reaction based on the IR value */
     switch(results.value)
     {
@@ -278,25 +328,91 @@ void HandleIR(void)
 }
 
 /***************************************************************************************
+ * Function: Robot_DetectAhead()
+ ***************************************************************************************
+ * Description: Read sensors so we know if the road is blocked.
+ **************************************************************************************/
+byte Robot_DetectAhead(void)
+{
+    /* Return if there is any obstacle ahead */
+    if(LOW == digitalRead(PIN_IR_OBSTACLE_DATA))
+    {
+        /* Obstacle ahead */
+        return E_NOT_OK;
+    }
+    else
+    {
+        /* No obstacle ahead */
+    }
+
+    return E_OK;
+}
+
+/***************************************************************************************
  * Function: Robot_Autopilot()
  ***************************************************************************************
  * Description: This function will use Robot intelligence for driving around.
  **************************************************************************************/
 void Robot_Autopilot(void)
 {
+    /* Each bit represents one way: Left, ahead(or back) and Right <-- MSB to LSM */
+    byte whereToGo = 3u;
+    uint16_t randomDegrees = 180;
+
     /* Read Distance Sensors and decide if movement is possible */
     /* - IR Sensor detects on LOW read */
-    if(LOW == digitalRead(PIN_IR_OBSTACLE_DATA))
+    if(E_NOT_OK == Robot_DetectAhead())
     {
         /* Obstacle Detected Ahead */
         /* Stop */
         Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+        delay(DELAY_1_SECOND);
 
         /* Look around */
         /* Look Left */
+        Motor_RotateLeft(45);
+        Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+        delay(DELAY_1_SECOND);
+        if(E_NOT_OK == Robot_DetectAhead())
+        {
+            /* Remove this way */
+            whereToGo -= 1u;
+        }
+
         /* Look Right */
+        Motor_RotateRight(90);
+        delay(DELAY_1_SECOND);
+        if(E_NOT_OK == Robot_DetectAhead())
+        {
+            /* Remove this way as well */
+            whereToGo -= 2u;
+        }
+
+        /* Return to original position */
+        Motor_RotateLeft(45);
+        delay(DELAY_1_SECOND);
 
         /* Decide which way to go */
+        switch(whereToGo)
+        {
+            case 0u:
+                /* Only way is to turn around */
+                /* Turn around random degrees */
+                randomDegrees = (uint16_t)(millis() % 360);
+                Motor_RotateLeft(randomDegrees);
+                break;
+            case 1u:
+                /* I prefeer to try to go to Right first, don't know why */
+                Motor_RotateRight(45);
+                break;
+            case 2u:
+                /* Otherwise i go Left */
+                Motor_RotateLeft(45);
+                break;
+            default:
+                /* If i panic i do nothing */
+                break;
+        }
 
         /* Some Dev Stuff */
         if(E_OK == devStuff)
@@ -308,6 +424,7 @@ void Robot_Autopilot(void)
     {
         /* No obstacle ahead */
         /* Walk forward */
+        Motor_SwitchDirection(DRV8834_MOTOR_BOTH, DRV8834_DIRECTION_FORWARD);
         Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
     }
 }
@@ -598,7 +715,7 @@ void loop(void)
     if(E_OK == devStuff)
     {
         /* Dev Stuff */
-        Robot_Testing();
+        //Robot_Testing();
     }
     else
     {
@@ -606,7 +723,7 @@ void loop(void)
     }
 
     /* Battery Management */
-    Robot_PowerManagement();
+    //Robot_PowerManagement();
 
     /* Movement Control */
     Robot_Explore();
