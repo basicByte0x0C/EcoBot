@@ -14,7 +14,7 @@
 #define DELAY_1_SECOND  1000
 #define DELAY_DEFAULT   DELAY_1_SECOND
 #define SERIAL_BRATE    115200
-static byte devStuff = E_OK;
+static byte devStuff = E_NOT_OK;
 /* General Stuff end */
 
 /* Motor Stuff */
@@ -65,7 +65,7 @@ decode_results results;
 #define PIN_INSOMNIA          	    2       /* Used for development purpose to keep the Robot awake */
 #define ADC_MAX_VALUE               1023.0
 #define ADC_MAX_VOLTAGE             3.3
-#define BATTERY_SLEEP_THRESHOLD     2.0     /* Voltage drops by 0.05 V when motors are working */
+#define BATTERY_SLEEP_THRESHOLD     3.3     /* Voltage drops by 0.05 V when motors are working */
 #define ROBOT_SLEEP_1_SECOND        1
 #define ROBOT_SLEEP_10_SECONDS      10
 #define ROBOT_SLEEP_30_SECONDS      30
@@ -769,20 +769,24 @@ void Robot_PowerManagement(void)
  **************************************************************************************/
 void Robot_Testing(void)
 {
-    /* Sleep for 20 seconds to Measure Energy Consumption */
-    //Robot_Sleep(20);
+    static uint32_t batteryReadTimeout = 0;
+    static float batteryVoltage = 0;
+
+    /* Read Battery Level once every second */
+    if(DELAY_1_SECOND < (millis() - batteryReadTimeout))
+    {
+        /* Update read timeout */
+        batteryReadTimeout = millis();
+        
+        /* Battery voltage is double the reading value; Voltage Divider is used with R1 = R2 */
+        batteryVoltage = 2 * (analogRead(PIN_BATTERY_LEVEL) * (ADC_MAX_VOLTAGE / ADC_MAX_VALUE));
+
+        /* Show battery level on Serial */
+        Serial.println(batteryVoltage);
+    }
 
     /* Test if motors stopped working */
     //Motor_TestMotor(DRV8834_MOTOR_BOTH);
-
-    /* Read Battery Level */
-    float batteryLevel = analogRead(PIN_BATTERY_LEVEL);
-        
-    /* Battery voltage is double the reading value; Voltage Divider is used with R1 = R2 */
-    float batteryVoltage = (batteryLevel * (ADC_MAX_VOLTAGE / ADC_MAX_VALUE)) * 2;
-
-    /* Show battery level on Serial */
-    //Serial.println(batteryVoltage);
 }
 
 /***************************************************************************************
