@@ -662,7 +662,7 @@ void Robot_Explore(void)
     static volatile long breakTime = 0;
 
     
-    /* Check Exploreing state */
+    /* Check Exploring state */
     if(exploreState == EXPLORE_AUTOMATE)
     {
         /* Try to read IR Receiver */
