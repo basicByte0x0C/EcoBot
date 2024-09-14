@@ -34,7 +34,7 @@ static byte devStuff = E_OK;
 #define DRV8834_WAKEUP_WAIT         1       /* Miliseconds until DRV8834 should be fully working after wakeup */
 #define DRV8834_WALK_TIME           100
 #define DRV8834_BREAK_TIMEOUT       115     /* Lower than this and the timeout is too short */
-#define MOTOR_TURN_TIME_FACTOR      5       /* Multiply by degree to turn around. Shoulkd be time for 1 degree */
+#define MOTOR_TURN_TIME_FACTOR      4       /* Multiply by degree to turn around. Shoulkd be time for 1 degree */
 /* Motor Stuff end */
 
 /* Exploration Stuff */
@@ -219,11 +219,15 @@ void Motor_RotateRight(uint16_t degrees)
     /* Rotate around */
     Motor_SwitchDirection(DRV8834_MOTOR_A, DRV8834_DIRECTION_FORWARD);
     Motor_SwitchDirection(DRV8834_MOTOR_B, DRV8834_DIRECTION_BACKWARD);
-    Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
-    delay(degrees * MOTOR_TURN_TIME_FACTOR);
 
-    /* Stop Turning around */
-    Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+    /* Try to rotate slowly */
+    do
+    {
+        Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
+        delay(MOTOR_TURN_TIME_FACTOR);
+        Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+        degrees--;
+    }while(0 < degrees);
 }
 
 /***************************************************************************************
@@ -241,11 +245,15 @@ void Motor_RotateLeft(uint16_t degrees)
     /* Rotate around */
     Motor_SwitchDirection(DRV8834_MOTOR_A, DRV8834_DIRECTION_BACKWARD);
     Motor_SwitchDirection(DRV8834_MOTOR_B, DRV8834_DIRECTION_FORWARD);
-    Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
-    delay(degrees * MOTOR_TURN_TIME_FACTOR);
 
-    /* Stop Turning around */
-    Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+    /* Try to rotate slowly */
+    do
+    {
+        Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
+        delay(MOTOR_TURN_TIME_FACTOR);
+        Motor_BreakMotor(DRV8834_MOTOR_BOTH);
+        degrees--;
+    }while(0 < degrees);
 }
 
 /***************************************************************************************
@@ -281,7 +289,6 @@ void Motor_TestMotor(byte motorIdentifier)
   direction = !direction;
   Motor_SwitchDirection(motorIdentifier, direction);
 }
-
 
 /***************************************************************************************
  * Function: Robot_WakeUp()
@@ -513,7 +520,16 @@ byte Robot_LookAround(void)
     Motor_RotateLeft(45);
     delay(DELAY_DEFAULT);
 
+    /* Dev Stuff */
+    if(E_OK == devStuff)
+    {
+        Serial.print("Around: ");
+        Serial.println(retVal, HEX);
+    }
+
+    return retVal;
 }
+
 /***************************************************************************************
  * Function: Robot_Autopilot()
  ***************************************************************************************
@@ -534,20 +550,48 @@ void Robot_Autopilot(void)
         Motor_BreakMotor(DRV8834_MOTOR_BOTH);
         delay(DELAY_DEFAULT);
 
-        /* Go a step Back */
-        Motor_SwitchDirection(DRV8834_MOTOR_BOTH, DRV8834_DIRECTION_BACKWARD);
-        Motor_EnableMotor(DRV8834_MOTOR_BOTH, DRV8834_POWER_FULL);
-        delay(100);
+        /* Some Dev Stuff */
+        if(E_OK == devStuff)
+        {
+            Serial.println("I see");
+        }
 
         /* Look around */
-        //whereToGo = Robot_LookAround();
+        whereToGo = Robot_LookAround();
 
         /* Decide which way to go */
-        /* Sensor used is not ok, go random for now */
-        whereToGo = 0u;
         switch(whereToGo)
         {
-            case 3u: /* Only obstacle ahead; fallthrough to obstacles everywhere */
+            case 3u: 
+                /* Only obstacle ahead */
+                /* Choose Left or right at random */
+                randomSeed(millis());
+                if(E_OK == random(2) % 2)
+                {
+                    /* Go  Right */
+                    Motor_RotateRight(45);
+                    delay(DELAY_DEFAULT);
+
+                    /* Dev Stuff */
+                    if(E_OK == devStuff)
+                    {
+                        Serial.println("3 -> Go Right");
+                    }
+                }
+                else
+                {
+                    /* Go Left */
+                    Motor_RotateLeft(45);
+                    delay(DELAY_DEFAULT);
+
+                    /* Dev Stuff */
+                    if(E_OK == devStuff)
+                    {
+                        Serial.println("3 -> Go Left");
+                    }
+                }
+
+                break;
             case 0u:
                 /* Only way is to turn around */
                 /* Turn around random degrees */
@@ -555,27 +599,41 @@ void Robot_Autopilot(void)
                 randomDegrees = (uint16_t)random(360);
                 Motor_RotateLeft(randomDegrees);
                 delay(DELAY_DEFAULT);
+
+                /* Dev Stuff */
+                if(E_OK == devStuff)
+                {
+                    Serial.println("0 -> Go Random");
+                }
+
                 break;
             case 1u:
                 /* Obstacle in Right side */
-                Motor_RotateRight(45);
+                Motor_RotateLeft(45);
                 delay(DELAY_DEFAULT);
+                
+                /* Dev Stuff */
+                if(E_OK == devStuff)
+                {
+                    Serial.println("1 -> Go Left");
+                }
+
                 break;
-            
             case 2u:
                 /* Obstacle in Left side */
                 Motor_RotateRight(45);
                 delay(DELAY_DEFAULT);
+
+                /* Dev Stuff */
+                if(E_OK == devStuff)
+                {
+                    Serial.println("2 -> Go Right");
+                }
+
                 break;
             default:
                 /* If i panic i do nothing */
                 break;
-        }
-
-        /* Some Dev Stuff */
-        if(E_OK == devStuff)
-        {
-            Serial.println("I see");
         }
     }
     else
@@ -739,6 +797,7 @@ void setup(void)
     {
         /* Prepare Debug */
         Serial.begin(SERIAL_BRATE);
+        while(!Serial);
     }
     else
     {

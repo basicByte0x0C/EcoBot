@@ -115,6 +115,11 @@
  * - Will be powered from the same pin as IR Remote.
  * - Very bad distance readings with this IR Distance Sensor. Maybe change the sensor with a better one.
  * - If the configured threshold is too high the robot will see objects everywhere. At the limit it is reading 2cm ahead...
+ *      This is caused by Ambient Light, sensor reads ok if not in direct light.
+ * - Changed IR Obstacle Sensor to Ambient Light resistent one(KY-032 KeyesIR 4 pin Sensor). Not it works in ambient light
+ * - PROBLEM: The IR Sensor detects in a narrow direction, obstacles too high or too low are not detected.
+ *      Solution 1: Make Robot compact and short. But there are a lot of wires, can't do now.
+ *          Solution to Solution 1: Make a design board or a PCB to make everything compact.
  */
 
 /* TODO: Laser Eyes
